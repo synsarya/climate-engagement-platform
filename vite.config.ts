@@ -58,7 +58,8 @@
       outDir: 'build',
     },
     server: {
-      allowedHosts: [ "figuratively-tuneful-wendi.ngrok-free.dev" ],
+      allowedHosts: ["*.ngrok-free.dev"],
+      host: true,
       port: 3000,
       open: true,
     },

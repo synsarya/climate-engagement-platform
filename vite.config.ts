@@ -4,9 +4,6 @@
   import path from 'path';
   
   export default defineConfig({
-    server: {
-      allowedHosts: [ "figuratively-tuneful-wendi.ngrok-free.dev"] 
-    },
     plugins: [react()],
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
@@ -61,6 +58,7 @@
       outDir: 'build',
     },
     server: {
+      allowedHosts: [ "figuratively-tuneful-wendi.ngrok-free.dev" ]
       port: 3000,
       open: true,
     },

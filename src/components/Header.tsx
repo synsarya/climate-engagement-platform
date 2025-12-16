@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
@@ -20,6 +20,97 @@ export function Header({ currentPage, onNavigate, user, onLogout }: HeaderProps)
   const [showLearningDropdown, setShowLearningDropdown] = useState(false);
   const [showActionDropdown, setShowActionDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
+  // Handle search
+  useEffect(() => {
+    const performSearch = async () => {
+      if (searchQuery.length < 2) {
+        setSearchResults([]);
+        setShowSearchResults(false);
+        return;
+      }
+
+      try {
+        const results = [];
+
+        // Search communities
+        try {
+          const { getCommunities } = await import("../utils/api");
+          const communityResponse = await getCommunities(undefined, searchQuery);
+          if (communityResponse.communities) {
+            results.push(...communityResponse.communities.map((comm: any) => ({
+              ...comm,
+              type: 'community',
+              displayName: comm.name,
+              subtitle: `${comm.memberCount || 0} members`
+            })));
+          }
+        } catch (error) {
+          console.error('Community search error:', error);
+        }
+
+        // Search users
+        try {
+          const { searchUsers } = await import("../utils/api");
+          const userResponse = await searchUsers(searchQuery);
+          if (userResponse.users) {
+            results.push(...userResponse.users.map((user: any) => ({
+              ...user,
+              type: 'user',
+              displayName: user.name,
+              subtitle: user.organization || user.location
+            })));
+          }
+        } catch (error) {
+          console.error('User search error:', error);
+        }
+
+        // Search events
+        try {
+          const { getEvents } = await import("../utils/api");
+          const eventResponse = await getEvents({ search: searchQuery });
+          if (eventResponse.events) {
+            results.push(...eventResponse.events.map((event: any) => ({
+              ...event,
+              type: 'event',
+              displayName: event.title,
+              subtitle: event.location || event.type
+            })));
+          }
+        } catch (error) {
+          console.error('Event search error:', error);
+        }
+
+        // Search discussions
+        try {
+          const { getDiscussions } = await import("../utils/api");
+          const discussionResponse = await getDiscussions(undefined, undefined, searchQuery);
+          if (discussionResponse.discussions) {
+            results.push(...discussionResponse.discussions.slice(0, 3).map((disc: any) => ({
+              ...disc,
+              type: 'discussion',
+              displayName: disc.title,
+              subtitle: `Discussion in ${disc.category || 'General'}`
+            })));
+          }
+        } catch (error) {
+          console.error('Discussion search error:', error);
+        }
+
+        setSearchResults(results.slice(0, 10)); // Limit to 10 results
+        setShowSearchResults(true);
+      } catch (error) {
+        console.error('Search error:', error);
+        setSearchResults([]);
+      }
+    };
+
+    const debounceTimer = setTimeout(performSearch, 300); // Debounce search
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
 
   const communityCategories = [
     { name: "Energy", icon: Zap, description: "Renewable energy & sustainability", slug: "energy" },
@@ -347,7 +438,56 @@ export function Header({ currentPage, onNavigate, user, onLogout }: HeaderProps)
             <Input
               placeholder="Search climate topics..."
               className="pl-8 w-[200px] lg:w-[300px]"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
+              onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
             />
+            
+            {/* Search Results Dropdown */}
+            {showSearchResults && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                {searchResults.map((result, index) => (
+                  <div
+                    key={`${result.type}-${result.id}-${index}`}
+                    className="flex items-center gap-3 p-3 hover:bg-muted cursor-pointer border-b border-border last:border-b-0"
+                    onClick={() => {
+                      if (result.type === 'community') {
+                        onNavigate('community-network');
+                      } else if (result.type === 'user') {
+                        // Navigate to user profile - assuming we have a profile page
+                        onNavigate(`profile?id=${result.id}`);
+                      } else if (result.type === 'event') {
+                        onNavigate('events');
+                      } else if (result.type === 'discussion') {
+                        onNavigate('community-network'); // Could navigate to specific discussion
+                      }
+                      setShowSearchResults(false);
+                      setSearchQuery("");
+                    }}
+                  >
+                    <div className="flex-shrink-0">
+                      {result.type === 'community' ? (
+                        <Users className="h-5 w-5 text-muted-foreground" />
+                      ) : result.type === 'user' ? (
+                        <User className="h-5 w-5 text-muted-foreground" />
+                      ) : result.type === 'event' ? (
+                        <Calendar className="h-5 w-5 text-muted-foreground" />
+                      ) : (
+                        <BookOpen className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{result.displayName}</div>
+                      <div className="text-xs text-muted-foreground truncate">{result.subtitle}</div>
+                      <Badge variant="outline" className="text-xs mt-1">
+                        {result.type}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           
           {user ? (

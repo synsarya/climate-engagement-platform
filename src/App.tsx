@@ -73,7 +73,18 @@ export default function App() {
   };
 
   const handleNavigate = (page: string) => {
-    setCurrentPage(page);
+    // Handle profile navigation with user ID
+    if (page.startsWith('profile?id=')) {
+      const userId = page.split('=')[1];
+      localStorage.setItem('viewingUserId', userId);
+      setCurrentPage('profile');
+    } else {
+      // Clear viewing user ID when navigating away from profile
+      if (page !== 'profile') {
+        localStorage.removeItem('viewingUserId');
+      }
+      setCurrentPage(page);
+    }
     updatePageTitle(page);
     window.scrollTo(0, 0); // Scroll to top on page change
   };
@@ -104,7 +115,7 @@ export default function App() {
       case 'community':
         return <CommunityPage onNavigate={handleNavigate} />;
       case 'community-network':
-        return <CommunityNetworkPage onNavigate={handleNavigate} />;
+        return <CommunityNetworkPage onNavigate={handleNavigate} user={user} onUserUpdate={setUser} />;
       case 'community-energy':
         return <CommunityPage category="energy" onNavigate={handleNavigate} />;
       case 'community-food':

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -30,9 +30,12 @@ import {
 } from "lucide-react";
 import { Separator } from "../ui/separator";
 import { JoinCommunityDialog, CreateCommunityDialog, ConnectMemberDialog, MessageMemberDialog } from "../CommunityDialogs";
+import { getCommunities } from "../../utils/api";
 
 interface CommunityNetworkPageProps {
   onNavigate?: (page: string) => void;
+  user?: any;
+  onUserUpdate?: (user: any) => void;
 }
 
 const INTEREST_CATEGORIES = [
@@ -46,9 +49,36 @@ const INTEREST_CATEGORIES = [
   { id: 'nature', name: 'Nature', icon: TreePine, color: 'text-emerald-600' }
 ];
 
+// Helper functions for community visuals
+const getCategoryImage = (category: string) => {
+  const images = {
+    energy: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400",
+    food: "https://images.unsplash.com/photo-1500651230702-0e2d8a49d4ad?w=400",
+    mobility: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400",
+    industry: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400",
+    technology: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400",
+    policy: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400",
+    nature: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400"
+  };
+  return images[category as keyof typeof images] || "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=400";
+};
+
+const getCategoryTags = (category: string) => {
+  const tagMap = {
+    energy: ["Renewable", "Clean Energy", "Sustainability"],
+    food: ["Agriculture", "Nutrition", "Sustainability"],
+    mobility: ["Transportation", "Electric", "Green Travel"],
+    industry: ["Manufacturing", "Efficiency", "Innovation"],
+    technology: ["Innovation", "Climate Tech", "Solutions"],
+    policy: ["Advocacy", "Regulation", "Climate Action"],
+    nature: ["Conservation", "Biodiversity", "Ecosystems"]
+  };
+  return tagMap[category as keyof typeof tagMap] || ["Climate", "Community", "Action"];
+};
+
 const MOCK_COMMUNITIES = [
   {
-    id: 1,
+    id: "climate-scientists-network",
     name: "Climate Scientists Network",
     description: "Professional network for climate researchers and academics worldwide",
     category: "technology",
@@ -61,7 +91,7 @@ const MOCK_COMMUNITIES = [
     recentActivity: "Active today"
   },
   {
-    id: 2,
+    id: "renewable-energy-enthusiasts",
     name: "Renewable Energy Enthusiasts",
     description: "Community for clean energy advocates and solar/wind professionals",
     category: "energy",
@@ -74,7 +104,7 @@ const MOCK_COMMUNITIES = [
     recentActivity: "Active today"
   },
   {
-    id: 3,
+    id: "sustainable-food-systems",
     name: "Sustainable Food Systems",
     description: "Exploring regenerative agriculture and sustainable food production",
     category: "food",
@@ -87,7 +117,7 @@ const MOCK_COMMUNITIES = [
     recentActivity: "Active 2h ago"
   },
   {
-    id: 4,
+    id: "electric-mobility-alliance",
     name: "Electric Mobility Alliance",
     description: "Accelerating the transition to electric and sustainable transportation",
     category: "mobility",
@@ -196,7 +226,7 @@ const MOCK_MEMBERS = [
   }
 ];
 
-export function CommunityNetworkPage({ onNavigate }: CommunityNetworkPageProps) {
+export function CommunityNetworkPage({ onNavigate, user, onUserUpdate }: CommunityNetworkPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [activeTab, setActiveTab] = useState("communities");
@@ -205,22 +235,103 @@ export function CommunityNetworkPage({ onNavigate }: CommunityNetworkPageProps) 
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [selectedCommunity, setSelectedCommunity] = useState<string>("");
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string>("");
   const [selectedMember, setSelectedMember] = useState<typeof MOCK_MEMBERS[0] | null>(null);
+  const [communities, setCommunities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredCommunities = MOCK_COMMUNITIES.filter(community => {
-    const matchesSearch = community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         community.description.toLowerCase().includes(searchQuery.toLowerCase());
+  // Fetch communities on mount
+  useEffect(() => {
+    fetchCommunities();
+  }, []);
+
+  const fetchCommunities = async () => {
+    try {
+      setLoading(true);
+      const response = await getCommunities();
+      const apiCommunities = response.communities || [];
+      
+      // Add default visual properties to make communities look better
+      const enhancedCommunities = apiCommunities.map(community => ({
+        ...community,
+        platform: "Your Earth",
+        verified: true,
+        featured: (community.memberCount || 0) > 5, // Feature communities with more members
+        image: getCategoryImage(community.category),
+        tags: getCategoryTags(community.category),
+        recentActivity: "Recently active"
+      }));
+      
+      setCommunities(enhancedCommunities);
+    } catch (error) {
+      console.error('Failed to fetch communities:', error);
+      // Fallback to mock data if API fails
+      setCommunities(MOCK_COMMUNITIES.map(c => ({ ...c, id: c.id.toString() })));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredCommunities = communities.filter(community => {
+    const matchesSearch = (community.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+                         (community.description?.toLowerCase() || '').includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "all" || community.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const filteredMembers = MOCK_MEMBERS.filter(member => {
-    const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         member.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || 
-                           member.interests.includes(selectedCategory);
-    return matchesSearch && matchesCategory;
-  });
+  const filteredMembers = (() => {
+    // Start with current user if logged in
+    const membersList = [];
+    
+    if (user) {
+      // Convert user profile to member format
+      const currentUserAsMember = {
+        id: user.id,
+        name: user.name || 'Anonymous User',
+        title: user.expertise || 'Climate Advocate',
+        location: user.location || 'Earth',
+        interests: user.interests || [],
+        communities: user.communities || [],
+        avatar: user.avatar || undefined,
+        verified: user.verified || false,
+        connections: 0 // Could be fetched separately
+      };
+      membersList.push(currentUserAsMember);
+    }
+    
+    // Add filtered mock members
+    const mockFiltered = MOCK_MEMBERS.filter(member => {
+      const matchesSearch = (member.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+                           (member.title?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+                           (member.location?.toLowerCase() || '').includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === "all" || member.interests.includes(selectedCategory);
+      return matchesSearch && matchesCategory;
+    });
+    
+    membersList.push(...mockFiltered);
+    return membersList;
+  })();
+
+  const refreshUserData = async () => {
+    if (!user || !onUserUpdate) return;
+    
+    try {
+      const { getProfile } = await import("../../utils/api");
+      const { profile } = await getProfile();
+      
+      const updatedUser = {
+        ...user,
+        communities: profile.communities || [],
+        connections: profile.connections || [],
+      };
+      
+      onUserUpdate(updatedUser);
+      // Also refresh communities to update member counts
+      await fetchCommunities();
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+    }
+  };
 
   return (
     <div className="pt-8">
@@ -304,8 +415,9 @@ export function CommunityNetworkPage({ onNavigate }: CommunityNetworkPageProps) 
                         <CommunityCard 
                           key={community.id} 
                           community={community}
-                          onJoinClick={(name) => {
+                          onJoinClick={(name, id) => {
                             setSelectedCommunity(name);
+                            setSelectedCommunityId(id);
                             setJoinDialogOpen(true);
                           }}
                         />
@@ -322,8 +434,9 @@ export function CommunityNetworkPage({ onNavigate }: CommunityNetworkPageProps) 
                       <CommunityCard 
                         key={community.id} 
                         community={community}
-                        onJoinClick={(name) => {
+                        onJoinClick={(name, id) => {
                           setSelectedCommunity(name);
+                          setSelectedCommunityId(id);
                           setJoinDialogOpen(true);
                         }}
                       />
@@ -404,6 +517,8 @@ export function CommunityNetworkPage({ onNavigate }: CommunityNetworkPageProps) 
         open={joinDialogOpen}
         onOpenChange={setJoinDialogOpen}
         communityName={selectedCommunity}
+        communityId={selectedCommunityId}
+        onSuccess={refreshUserData}
       />
       
       <CreateCommunityDialog 
@@ -432,7 +547,7 @@ export function CommunityNetworkPage({ onNavigate }: CommunityNetworkPageProps) 
 
 interface CommunityCardProps {
   community: typeof MOCK_COMMUNITIES[0];
-  onJoinClick: (communityName: string) => void;
+  onJoinClick: (communityName: string, communityId: string) => void;
 }
 
 function CommunityCard({ community, onJoinClick }: CommunityCardProps) {
@@ -445,10 +560,10 @@ function CommunityCard({ community, onJoinClick }: CommunityCardProps) {
         <div className="aspect-video relative overflow-hidden bg-muted">
           <img 
             src={community.image} 
-            alt={community.name}
+            alt={community.name || 'Community'}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
-          {community.platform !== "Your Earth" && (
+          {community.platform && community.platform !== "Your Earth" && (
             <Badge className="absolute top-3 right-3" variant="secondary">
               <ExternalLink className="h-3 w-3 mr-1" />
               {community.platform}
@@ -461,12 +576,12 @@ function CommunityCard({ community, onJoinClick }: CommunityCardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <CardTitle className="text-lg flex items-center gap-2">
-              {community.name}
+              {community.name || 'Unnamed Community'}
               {community.verified && (
                 <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
               )}
             </CardTitle>
-            <CardDescription className="mt-2">{community.description}</CardDescription>
+            <CardDescription className="mt-2">{community.description || 'No description available'}</CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -475,7 +590,7 @@ function CommunityCard({ community, onJoinClick }: CommunityCardProps) {
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Users className="h-4 w-4" />
-            <span>{community.members.toLocaleString()} members</span>
+            <span>{(community.memberCount || community.members).toLocaleString()} members</span>
           </div>
           <div className="flex items-center gap-1">
             <CategoryIcon className={`h-4 w-4 ${categoryInfo?.color || ''}`} />
@@ -483,17 +598,19 @@ function CommunityCard({ community, onJoinClick }: CommunityCardProps) {
         </div>
 
         <div className="flex flex-wrap gap-1">
-          {community.tags.map((tag, index) => (
+          {community.tags && community.tags.map((tag, index) => (
             <Badge key={index} variant="outline" className="text-xs">
               {tag}
             </Badge>
           ))}
         </div>
 
-        <div className="text-xs text-muted-foreground flex items-center gap-1">
-          <TrendingUp className="h-3 w-3" />
-          {community.recentActivity}
-        </div>
+        {community.recentActivity && (
+          <div className="text-xs text-muted-foreground flex items-center gap-1">
+            <TrendingUp className="h-3 w-3" />
+            {community.recentActivity}
+          </div>
+        )}
 
         <Separator />
 
@@ -508,7 +625,7 @@ function CommunityCard({ community, onJoinClick }: CommunityCardProps) {
           ) : (
             <Button 
               className="flex-1"
-              onClick={() => onJoinClick(community.name)}
+              onClick={() => onJoinClick(community.name, community.id)}
             >
               Join Community
             </Button>
@@ -516,7 +633,7 @@ function CommunityCard({ community, onJoinClick }: CommunityCardProps) {
           <Button 
             variant="outline" 
             size="icon"
-            onClick={() => onJoinClick(community.name)}
+            onClick={() => onJoinClick(community.name, community.id)}
           >
             <MessageCircle className="h-4 w-4" />
           </Button>

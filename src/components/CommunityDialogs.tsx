@@ -40,9 +40,10 @@ interface JoinCommunityDialogProps {
   communityName?: string;
   communityCategory?: string;
   communityId?: string;
+  onSuccess?: () => void;
 }
 
-export function JoinCommunityDialog({ open, onOpenChange, communityName, communityCategory, communityId }: JoinCommunityDialogProps) {
+export function JoinCommunityDialog({ open, onOpenChange, communityName, communityCategory, communityId, onSuccess }: JoinCommunityDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   
   const handleJoin = async () => {
@@ -58,6 +59,7 @@ export function JoinCommunityDialog({ open, onOpenChange, communityName, communi
       toast.success(`Successfully joined ${communityName || 'the community'}!`, {
         description: "You'll now receive updates and can participate in discussions."
       });
+      onSuccess?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Join community error:', error);

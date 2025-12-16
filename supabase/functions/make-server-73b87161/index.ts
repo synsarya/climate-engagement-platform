@@ -661,7 +661,6 @@ app.get("/make-server-73b87161/discussions", async (c) => {
   try {
     const communityId = c.req.query('communityId');
     const category = c.req.query('category');
-    const search = c.req.query('search');
     
     const allDiscussions = await kv.getByPrefix('discussion:');
     let discussions = allDiscussions || [];
@@ -674,15 +673,6 @@ app.get("/make-server-73b87161/discussions", async (c) => {
     // Filter by category if provided
     if (category && category !== 'all') {
       discussions = discussions.filter(disc => disc.category === category);
-    }
-
-    // Filter by search term if provided
-    if (search) {
-      const searchLower = search.toLowerCase();
-      discussions = discussions.filter(disc => 
-        disc.title?.toLowerCase().includes(searchLower) ||
-        disc.content?.toLowerCase().includes(searchLower)
-      );
     }
 
     // Sort by creation date (newest first)

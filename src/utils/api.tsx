@@ -146,10 +146,11 @@ export async function joinCommunity(communityId: string) {
 
 // ===== DISCUSSION API =====
 
-export async function getDiscussions(communityId?: string, category?: string) {
+export async function getDiscussions(communityId?: string, category?: string, search?: string) {
   const params = new URLSearchParams();
   if (communityId) params.append('communityId', communityId);
   if (category) params.append('category', category);
+  if (search) params.append('search', search);
   
   const query = params.toString();
   return await apiCall(`/discussions${query ? '?' + query : ''}`);
